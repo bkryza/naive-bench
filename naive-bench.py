@@ -130,6 +130,9 @@ if options.readonly and options.writeonly:
     print("Cannot perform readonly and writeonly test - exiting.", file=sys.stderr)  
     sys.exit(2)
 
+if options.filecount < 1:
+    print("Cannot perform test with no files - exiting.", file=sys.stderr)  
+    sys.exit(2)
 
 #
 # CSV file row field order
@@ -205,7 +208,7 @@ if not options.readonly:
 print("\nPerform write test:", file=sys.stderr)
 starttime = time.time()
 write_size = 0
-for i in range(int(filecount / 10)):
+for i in range(filecount if filecount<10 else int(filecount / 10)):
     rand_size = int(filesize * 0.5 + filesize * random.random())
     rand = randfile.read(rand_size)
     outfile = open("naive-bench-data/" \
@@ -227,10 +230,11 @@ if not options.writeonly:
     print("\nPerforming linear read test:", file=sys.stderr)
     starttime = time.time()
     outfile = open("/dev/null", "wb")
-    for i in range(int(filecount / 10)):
-        used_files.append(i)
+    for i in range(filecount if filecount<10 else int(filecount / 10)):
+        file_id = int(random.random() * filecount)
+        used_files.append(file_id)
         infile = open("naive-bench-data/" \
-                 + str(int(random.random() * filecount)), "rb")
+                 + str(file_id), "rb")
         total_read_size += outfile.write(infile.read());
     linear_read_time = time.time() - starttime
     print("Read " + str(humanize.naturalsize(total_read_size)) + " in " \
@@ -248,7 +252,7 @@ read_block_size = options.blocksize
 starttime = time.time()
 outfile = open("/dev/null", "wb")
 total_read_size = 0
-for i in range(int(filecount / 10)):
+for i in range(filecount if filecount<10 else int(filecount / 10)):
     #
     # Try to randomly select a file that has not been yet used
     #
