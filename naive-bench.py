@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 #
@@ -99,35 +99,35 @@ if sys.platform == "linux" or sys.platform == "linux2":
 elif sys.platform == "darwin":
     flush = "sudo sh -c 'sync; purge'"
 else:
-    print sys.platform, " platform is not supported - exiting."
+    print ( sys.platform, " platform is not supported - exiting." )
     sys.exit(1)
 
 st = os.statvfs(os.getcwd())
 available_disk_space = st.f_bavail * st.f_frsize
 
-print >> sys.stderr, '------------------------------'
-print >> sys.stderr, 'Starting test'
-print >> sys.stderr, '  Number of files: ', filecount
-print >> sys.stderr, '  Average file size: ', humanize.naturalsize(filesize)
-print >> sys.stderr, '  Maximum disk space needed: ', \
-                     humanize.naturalsize(filesize * filecount * 1.5)
-print >> sys.stderr, '  Available disk space: ', \
-                     humanize.naturalsize(available_disk_space)                   
-print >> sys.stderr, '------------------------------'
+print("------------------------------", file=sys.stderr)
+print('Starting test')
+print("  Number of files: ", filecount, file=sys.stderr)
+print('  Average file size: ', humanize.naturalsize(filesize), file=sys.stderr)
+print('  Maximum disk space needed: ', \
+                     humanize.naturalsize(filesize * filecount * 1.5), file=sys.stderr)
+print('  Available disk space: ', \
+                     humanize.naturalsize(available_disk_space), file=sys.stderr)                   
+print('------------------------------')
 
 
 #
 # Check available disk space for test
 #
 if (filesize * filecount * 1.5) > available_disk_space and not options.force:
-    print >> sys.stderr, "Not enough disk space to perform test - exiting."
+    print("Not enough disk space to perform test - exiting.", file=sys.stderr)
     sys.exit(1)
 
 #
 # Check conflicting options
 #
 if options.readonly and options.writeonly:
-    print >> sys.stderr, "Cannot perform readonly and writeonly test - exiting."
+    print("Cannot perform readonly and writeonly test - exiting.", file=sys.stderr)  
     sys.exit(2)
 
 
@@ -168,15 +168,15 @@ delete_time = float('NaN')
 #
 # Open the random device for writing test files
 #
-randfile = open("/dev/urandom", "r")
+randfile = open("/dev/urandom", "rb")
 
 if not options.readonly:
-    print >> sys.stderr, "\n\nCreating test folder 'naive-bench-data':"
+    print("\n\nCreating test folder 'naive-bench-data':", file=sys.stderr)
     system("rm -rf naive-bench-data")
     starttime = time.time()
     system("mkdir naive-bench-data")
     endtime = time.time() - starttime
-    print >> sys.stderr,endtime
+    print("Created test folder in " + str(endtime) + "s", file=sys.stderr)
 
 system(flush)
 
@@ -184,28 +184,37 @@ system(flush)
 # Create files with random content
 #
 if not options.readonly:
-    print >> sys.stderr, "\nCreating test files:"
+    print("\nCreating test files:", file=sys.stderr)
     starttime = time.time()
-    for i in xrange(filecount):
-        rand = randfile.read(int(filesize * 0.5 + filesize * random.random()))
-        outfile = open("naive-bench-data/" + unicode(i), "w")
-        outfile.write(rand)
+    total_size = 0
+    for i in range(filecount):
+        rand_size = int(filesize * 0.5 + filesize * random.random())
+        rand = randfile.read(rand_size)
+        outfile = open("naive-bench-data/" + str(i), "wb")
+        total_size += outfile.write(rand)
     create_files_time = time.time() - starttime
-    print >> sys.stderr, create_files_time
+    print("Created " + str(filecount) + " files of total size " \
+             + str(humanize.naturalsize(total_size)) + " in " \
+             + str(create_files_time) + "s", file=sys.stderr)
 
     system(flush)
 
 #
 # Overwrite 1/10th of files using /dev/random
 #
-print >> sys.stderr, "\nPerform write test:"
+print("\nPerform write test:", file=sys.stderr)
 starttime = time.time()
-for i in xrange(int(filecount / 10)):
-    rand = randfile.read(int(filesize * 0.5 + filesize * random.random()))
-    outfile = open("naive-bench-data/" + unicode(int(random.random() * filecount)), "w")
+write_size = 0
+for i in range(int(filecount / 10)):
+    rand_size = int(filesize * 0.5 + filesize * random.random())
+    rand = randfile.read(rand_size)
+    outfile = open("naive-bench-data/" \
+              + str(int(random.random() * filecount)), "wb")
     outfile.write(rand)
+    write_size += rand_size
 overwrite_files_time = time.time() - starttime
-print >> sys.stderr, overwrite_files_time
+print("Written " + str(humanize.naturalsize(write_size)) \
+         + " in " + str(overwrite_files_time) + "s", file=sys.stderr)
 
 system(flush)
 
@@ -213,16 +222,19 @@ system(flush)
 # Read entire randomly selected files (1/10th of the population)
 #
 used_files = []
+total_read_size = 0
 if not options.writeonly:
-    print >> sys.stderr, "\nPerforming linear read test:"
+    print("\nPerforming linear read test:", file=sys.stderr)
     starttime = time.time()
-    outfile = open("/dev/null", "w")
-    for i in xrange(int(filecount / 10)):
+    outfile = open("/dev/null", "wb")
+    for i in range(int(filecount / 10)):
         used_files.append(i)
-        infile = open("naive-bench-data/" + unicode(int(random.random() * filecount)), "r")
-        outfile.write(infile.read());
+        infile = open("naive-bench-data/" \
+                 + str(int(random.random() * filecount)), "rb")
+        total_read_size += outfile.write(infile.read());
     linear_read_time = time.time() - starttime
-    print >> sys.stderr, linear_read_time
+    print("Read " + str(humanize.naturalsize(total_read_size)) + " in " \
+          + str(linear_read_time) + "s", file=sys.stderr)
 
     system(flush)
 
@@ -231,11 +243,12 @@ if not options.writeonly:
 # Each read reads options.blocksize bytes
 #
 #
-print >> sys.stderr, "\nPerforming random read test:"
+print("\nPerforming random read test:", file=sys.stderr)
 read_block_size = options.blocksize
 starttime = time.time()
-outfile = open("/dev/null", "w")
-for i in xrange(int(filecount / 10)):
+outfile = open("/dev/null", "wb")
+total_read_size = 0
+for i in range(int(filecount / 10)):
     #
     # Try to randomly select a file that has not been yet used
     #
@@ -244,7 +257,7 @@ for i in xrange(int(filecount / 10)):
         file_id = int(random.random() * filecount)
 
     used_files.append(file_id)
-    infile_path = "naive-bench-data/" + unicode(file_id)
+    infile_path = "naive-bench-data/" + str(file_id)
     #
     # Check the test file size and make sure it's not too small
     #
@@ -252,14 +265,17 @@ for i in xrange(int(filecount / 10)):
     if infile_size < 2*read_block_size+1:
         continue;
     #
-    # Open the file for reading, select 10 random 'blocksize' blocks and read them
+    # Open the file for reading, select 10 random 'blocksize' blocks and read 
+    # them
     # 
-    infile = open(infile_path, "r")
-    for i in xrange(1, 10):
-        infile.seek((random.random()*int((infile_size/read_block_size)-1)))
-        outfile.write(infile.read(read_block_size));
+    infile = open(infile_path, "rb")
+    for i in range(0, int(infile_size/read_block_size)-1):
+        infile.seek(int(random.random()*(int(infile_size/read_block_size)-1)), \
+                    0)
+        total_read_size += outfile.write(infile.read(read_block_size));
 random_read_time = time.time() - starttime
-print >> sys.stderr, random_read_time
+print("Read " + str(humanize.naturalsize(total_read_size)) + " in " \
+          + str(random_read_time) + "s", file=sys.stderr)
 
 system(flush)
 
@@ -267,11 +283,11 @@ system(flush)
 # Delete the entire test folder
 #
 if not options.keep:
-    print >> sys.stderr, "\nDeleting all files:"
+    print("\nDeleting all files:", file=sys.stderr)
     starttime = time.time()
     system("rm -rf naive-bench-data")
     delete_time = time.time() - starttime
-    print >> sys.stderr, delete_time
+    print("Deleted all files in " + str(delete_time) + "s", file=sys.stderr)
     system(flush)
 
 #
@@ -279,14 +295,14 @@ if not options.keep:
 #
 if options.csv:
     if not options.skipheader:
-        print storage_name_label + ";" + number_files_label + ";" \
+        print(storage_name_label + ";" + number_files_label + ";" \
               + average_file_size_label + ";" + create_files_label + ";" \
               + overwrite_files_label + ";" + linear_read_label + ";" \
-              + random_read_label + ";" + delete_label
+              + random_read_label + ";" + delete_label)
 
-    print options.name + ";" + str(filecount) + ';' + str(filesize) + ';' \
+    print(options.name + ";" + str(filecount) + ';' + str(filesize) + ';' \
           + str(create_files_time) + ';' + str(overwrite_files_time) + ';' \
           + str(linear_read_time) + ';' + str(random_read_time) + ';' \
-          + str(delete_time)
+          + str(delete_time))
 
 
