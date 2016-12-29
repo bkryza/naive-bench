@@ -79,6 +79,11 @@ parser.add_option('-k', '--keep',
     action="store_true", dest="keep",
     help="""Keep the files after running the test.""", default=False)
 
+parser.add_option('-F', '--force',
+    action="store_true", dest="force",
+    help="""Run the test even when the available storage size is too small.""", 
+    default=False)
+
 
 options, args = parser.parse_args()
 
@@ -114,7 +119,7 @@ print >> sys.stderr, '------------------------------'
 #
 # Check available disk space for test
 #
-if (filesize * filecount * 1.5) > available_disk_space:
+if (filesize * filecount * 1.5) > available_disk_space and not options.force:
     print >> sys.stderr, "Not enough disk space to perform test - exiting."
     sys.exit(1)
 
@@ -223,7 +228,7 @@ if not options.writeonly:
 
 #
 # Perform 10 random reads on 1/10th of files
-# Each read reads 1024 bytes
+# Each read reads options.blocksize bytes
 #
 #
 print >> sys.stderr, "\nPerforming random read test:"
@@ -235,7 +240,7 @@ for i in xrange(int(filecount / 10)):
     # Try to randomly select a file that has not been yet used
     #
     file_id = int(random.random() * filecount)
-    while(not i in used_files):
+    while(not file_id in used_files):
         file_id = int(random.random() * filecount)
 
     used_files.append(file_id)
