@@ -28,8 +28,8 @@ filecount = int(options.filecount)
 print '------------------------------'
 print 'Starting test'
 print '  Number of files: ', filecount
-print '  Maximum file size: ', humanize.naturalsize(filesize)
-print '  Total disk space used: ', humanize.naturalsize(filesize * filecount)
+print '  Average file size: ', humanize.naturalsize(filesize)
+print '  Total disk space used: ', humanize.naturalsize(filesize * filecount * 1.5)
 print '------------------------------'
 
 
@@ -78,6 +78,7 @@ system(flush)
 
 print "\nRead linear:"
 starttime = time.time()
+outfile = open("/dev/null", "w")
 for i in xrange(int(filecount / 10)):
     infile = open("test/" + unicode(i), "r")
     outfile.write(infile.read());
