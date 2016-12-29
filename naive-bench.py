@@ -252,7 +252,7 @@ for i in xrange(int(filecount / 10)):
     if infile_size < 2*read_block_size+1:
         continue;
     #
-    # Open the file for reading, select 10 random 1KB blocks and read them
+    # Open the file for reading, select 10 random 'blocksize' blocks and read them
     # 
     infile = open(infile_path, "r")
     for i in xrange(1, 10):
