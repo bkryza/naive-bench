@@ -25,11 +25,11 @@ parser.add_option('-n', '--name',
 
 parser.add_option('-c', '--csv',
     action="store_true", dest="csv",
-    help="Generat CSV row", default=False)
+    help="Generate CSV output", default=False)
 
-parser.add_option('-H', '--header',
-    action="store_false", dest="header", 
-    help="Generated csv header", default=True)
+parser.add_option('-H', '--no-header',
+    action="store_true", dest="skipheader", 
+    help="Skip CSV header", default=False)
 
 
 
@@ -183,7 +183,7 @@ system(flush)
 # Print CSV on stdout
 #
 if options.csv:
-    if options.header:
+    if not options.skipheader:
         print storage_name_label + ";" + number_files_label + ";" \
               + average_file_size_label + ";" + create_files_label + ";" \
               + overwrite_files_label + ";" + linear_read_label + ";" \
