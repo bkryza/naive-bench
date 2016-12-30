@@ -191,10 +191,23 @@ if not options.readonly:
     starttime = time.time()
     total_size = 0
     for i in range(filecount):
-        rand_size = int(filesize * 0.5 + filesize * random.random())
-        rand = randfile.read(rand_size)
+        rand_size = int(filesize*0.5 + filesize*random.random())
         outfile = open("naive-bench-data/" + str(i), "wb")
-        total_size += outfile.write(rand)
+
+        #
+        # Rewrite random device to the output file in 'blocksize' blocks
+        #
+        written_bytes = 0
+        while(written_bytes + options.blocksize < rand_size):
+            written_bytes += outfile.write(randfile.read(options.blocksize))
+
+        #
+        # Write remainder of the file
+        #
+        written_bytes += outfile.write(randfile.read(rand_size - written_bytes))
+
+        total_size += written_bytes
+
     create_files_time = time.time() - starttime
     print("Created " + str(filecount) + " files of total size " \
              + str(humanize.naturalsize(total_size)) + " in " \
@@ -202,24 +215,38 @@ if not options.readonly:
 
     system(flush)
 
+
 #
 # Overwrite 1/10th of files using /dev/random
 #
 print("\nPerform write test:", file=sys.stderr)
 starttime = time.time()
-write_size = 0
+total_size = 0
 for i in range(filecount if filecount<10 else int(filecount / 10)):
-    rand_size = int(filesize * 0.5 + filesize * random.random())
-    rand = randfile.read(rand_size)
+    rand_size = int(filesize*0.5 + filesize*random.random())
     outfile = open("naive-bench-data/" \
               + str(int(random.random() * filecount)), "wb")
-    outfile.write(rand)
-    write_size += rand_size
+    
+    #
+    # Write the blocks of size 'blocksize'
+    #
+    written_bytes = 0
+    while(written_bytes + options.blocksize < rand_size):
+        written_bytes += outfile.write(randfile.read(options.blocksize))
+
+    #
+    # Write remainder of the file
+    #
+    written_bytes += outfile.write(randfile.read(rand_size - written_bytes))
+
+    total_size += written_bytes
+
 overwrite_files_time = time.time() - starttime
-print("Written " + str(humanize.naturalsize(write_size)) \
+print("Written " + str(humanize.naturalsize(total_size)) \
          + " in " + str(overwrite_files_time) + "s", file=sys.stderr)
 
 system(flush)
+
 
 #
 # Read entire randomly selected files (1/10th of the population)
@@ -235,7 +262,11 @@ if not options.writeonly:
         used_files.append(file_id)
         infile = open("naive-bench-data/" \
                  + str(file_id), "rb")
-        total_read_size += outfile.write(infile.read());
+        written_bytes += outfile.write(infile.read(options.blocksize));
+        total_read_size += written_bytes
+        while(written_bytes == options.blocksize):
+            written_bytes = outfile.write(randfile.read(options.blocksize))
+            total_read_size += written_bytes
     linear_read_time = time.time() - starttime
     print("Read " + str(humanize.naturalsize(total_read_size)) + " in " \
           + str(linear_read_time) + "s", file=sys.stderr)
