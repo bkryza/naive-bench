@@ -58,11 +58,15 @@ process_manager = Manager()
 #
 storage_name_label = "STORAGE NAME"
 number_files_label = "FILE COUNT"
-average_file_size_label = "AVERAGE FILE SIZE"
-create_files_label = "CREATE"
-overwrite_files_label = "WRITE"
-linear_read_label = "LINEAR_READ"
-random_read_label = "RANDOM_READ"
+average_file_size_label = "AVERAGE FILE SIZE [b]"
+create_files_label = "CREATE TIME [s]"
+create_files_size_label = "CREATE SIZE [b]"
+overwrite_files_label = "WRITE TIME [s]"
+overwrite_files_size_label = "WRITE SIZE [b]"
+linear_read_label = "LINEAR READ TIME [s]"
+linear_read_size_label = "LINEAR READ SIZE [b]"
+random_read_label = "RANDOM READ TIME [s]"
+random_read_size_label = "RANDOM READ SIZE [b]"
 delete_label = "DELETE"
 
 __test_data_dir = "naive-bench-data"
@@ -138,8 +142,13 @@ def run_benchmark(file_create_benchmark, \
     file_create_benchmark_args = []
     for tidx in range(threadcount):
 
-        r = range(int(tidx*(filecount/threadcount)), \
-                  int((tidx+1)*(filecount/threadcount)-1))
+        r = None
+        if(filecount == threadcount):
+            r = [tidx]
+        else:
+            low_range = int(tidx*(filecount/threadcount))
+            high_range = int((tidx+1)*(filecount/threadcount))
+            r = list(range(low_range, high_range))
 
         file_create_benchmark_args.append(\
             (tidx, r, filesize, deviation, blocksize, __test_data_dir, \
@@ -409,7 +418,7 @@ def file_random_read_benchmark(task_id, file_ids, filesize, deviation, \
         file_read_bytes = 0
         
         while(file_read_bytes + blocksize < infile_size):
-            infile.seek(int(random.random()*(int(infile_size/blocksize)-1)), 0)            
+            infile.seek(int(random.random()*(int(infile_size/blocksize)-1)), 0)
             block_read_bytes = outfile.write(infile.read(blocksize))
             file_read_bytes += block_read_bytes
             total_read_bytes += block_read_bytes
@@ -417,11 +426,11 @@ def file_random_read_benchmark(task_id, file_ids, filesize, deviation, \
             # Format progress message
             # 
             thread_progress_messages[task_id] = \
-                    "Task # " + str(task_id) + ": Read " \
-                  + humanize.naturalsize(total_read_bytes) \
-                  + " of " + humanize.naturalsize(total_size_to_read) \
-                  + " | " + humanize.naturalsize(total_read_bytes/(time.time()-start_time)) \
-                  + "/s       "
+                "Task # " + str(task_id) + ": Read " \
+                + humanize.naturalsize(total_read_bytes) \
+                + " of " + humanize.naturalsize(total_size_to_read) \
+                + " | " + humanize.naturalsize(total_read_bytes/(time.time()-start_time)) \
+                + "/s       "
 
         #
         # Write remainder of the file
@@ -589,9 +598,13 @@ if __name__ == '__main__':
     # Initialize time variables
     #
     create_files_time = float('NaN')
+    create_files_bytes_size = 0
     overwrite_files_time = float('NaN')
+    overwrite_files_bytes_size = 0
     linear_read_time = float('NaN')
+    linear_read_bytes_size = 0
     random_read_time = float('NaN')
+    random_read_bytes_size = 0
     delete_time = float('NaN')
 
 
@@ -627,15 +640,17 @@ if __name__ == '__main__':
     #
     # Calculate total benchmark size and time
     #
-    total_size = sum(s[0] for s in threads_results.values())
+    create_files_bytes_size = sum(s[0] for s in threads_results.values())
 
     print("")
     print("Created " + str(filecount) + " files of total size " \
-          + str(humanize.naturalsize(total_size)) + " in " \
+          + str(humanize.naturalsize(create_files_bytes_size)) + " in " \
           + str(create_files_time) + "s", file=sys.stderr)
     print("Create throughput: " \
-          + str(humanize.naturalsize(total_size/create_files_time) ) + "/s")
+          + str(humanize.naturalsize(create_files_bytes_size/create_files_time))\
+          + "/s")
     print("")
+    
     system(flush)
 
 
@@ -657,15 +672,16 @@ if __name__ == '__main__':
     #
     # Calculate total benchmark size and time
     #
-    total_size = sum(s[0] for s in threads_results.values())
+    overwrite_files_bytes_size = sum(s[0] for s in threads_results.values())
 
     print("")
     print("Overwritten " + str(filecount) + " files with total size " \
-          + str(humanize.naturalsize(total_size)) + " in " \
+          + str(humanize.naturalsize(overwrite_files_bytes_size)) + " in " \
           + str(overwrite_files_time) + "s", file=sys.stderr)
     print("Overwrite throughput: " \
-          + str(humanize.naturalsize(total_size/overwrite_files_time) ) + "/s")
+          + str(humanize.naturalsize(overwrite_files_bytes_size/overwrite_files_time) ) + "/s")
     print("")
+    
     system(flush)
 
 
@@ -687,15 +703,16 @@ if __name__ == '__main__':
     #
     # Calculate total benchmark size and time
     #
-    total_size = sum(s[0] for s in threads_results.values())
+    linear_read_bytes_size = sum(s[0] for s in threads_results.values())
 
     print("")
     print("Read " + str(filecount) + " files with total size " \
-          + str(humanize.naturalsize(total_size)) + " in " \
+          + str(humanize.naturalsize(linear_read_bytes_size)) + " in " \
           + str(linear_read_time) + "s", file=sys.stderr)
     print("Linear read throughput: " \
-          + str(humanize.naturalsize(total_size/linear_read_time) ) + "/s")
+          + str(humanize.naturalsize(linear_read_bytes_size/linear_read_time) ) + "/s")
     print("")
+    
     system(flush)
 
 
@@ -717,15 +734,16 @@ if __name__ == '__main__':
     #
     # Calculate total benchmark size and time
     #
-    total_size = sum(s[0] for s in threads_results.values())
+    random_read_bytes_size = sum(s[0] for s in threads_results.values())
 
     print("")
     print("Read " + str(filecount) + " files with total size " \
-          + str(humanize.naturalsize(total_size)) + " in " \
+          + str(humanize.naturalsize(random_read_bytes_size)) + " in " \
           + str(random_read_time) + "s", file=sys.stderr)
     print("Random read throughput: " \
-          + str(humanize.naturalsize(total_size/random_read_time) ) + "/s")
+          + str(humanize.naturalsize(random_read_bytes_size/random_read_time) ) + "/s")
     print("")
+
     system(flush)
 
 
@@ -747,13 +765,18 @@ if __name__ == '__main__':
     if options.csv:
         if not options.skipheader:
             print(storage_name_label + ";" + number_files_label + ";" \
-                  + average_file_size_label + ";" + create_files_label + ";" \
-                  + overwrite_files_label + ";" + linear_read_label + ";" \
-                  + random_read_label + ";" + delete_label)
+                  + average_file_size_label + ";" \
+                  + create_files_label + ";" + create_files_size_label + ";" \
+                  + overwrite_files_label + ";" + overwrite_files_size_label + ";"\
+                  + linear_read_label + ";" + linear_read_size_label + ";"\
+                  + random_read_label + ";" + random_read_size_label + ";"\
+                  + delete_label)
 
-        print(options.name + ";" + str(filecount) + ';' + str(filesize) + ';' \
-              + str(create_files_time) + ';' + str(overwrite_files_time) + ';' \
-              + str(linear_read_time) + ';' + str(random_read_time) + ';' \
+        print(options.name + ";" + str(filecount) + ';' + str(filesize) + ';'  \
+              + str(create_files_time) + ';' + str(create_files_bytes_size) + ';' \
+              + str(overwrite_files_time) + ';' + str(overwrite_files_bytes_size) + ';' \
+              + str(linear_read_time) + ';' + str(linear_read_bytes_size) + ';' \
+              + str(random_read_time) + ';' + str(random_read_bytes_size) + ';' \
               + str(delete_time))
 
 
