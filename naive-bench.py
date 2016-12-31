@@ -175,9 +175,9 @@ def run_benchmark(file_create_benchmark, \
 
     start_time = time.time()
     #
-    # Wait for the threads to complete and printout the progress 
+    # Wait for the threads to complete and printout the progress every 
+    # 0.5 second
     #
-    #time.sleep(0.5)
     while any(thread.is_alive() for thread in threads):
         time.sleep(0.5)
         for i in range(threadcount):
@@ -381,7 +381,7 @@ def file_linear_read_benchmark(task_id, file_ids, filesize, deviation, \
         # Write remainder of the file
         #
         block_read_bytes = \
-            outfile.write(infile.read(file_sizes[file_ids[i]]))
+            outfile.write(infile.read(file_sizes[file_ids[i]]-file_read_bytes))
         total_read_bytes += block_read_bytes
 
     outfile.close()
@@ -449,7 +449,7 @@ def file_random_read_benchmark(task_id, file_ids, filesize, deviation, \
         # Write remainder of the file
         #
         block_read_bytes = \
-            outfile.write(infile.read(file_sizes[file_ids[i]]))
+            outfile.write(infile.read(file_sizes[file_ids[i]]-file_read_bytes))
         total_read_bytes += block_read_bytes
 
     outfile.close()
@@ -762,7 +762,7 @@ if __name__ == '__main__':
         print("Deleted all files in " + str(delete_time) + "s", file=sys.stderr)
         system(flush)
 
-        
+
     #
     # Print CSV on stdout
     #
