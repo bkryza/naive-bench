@@ -29,8 +29,6 @@ import socket, sys, os, re, math, hashlib
 import functools
 
 from os import system
-from tqdm import tqdm
-from tqdm import trange
 from functools import partial
 from itertools import repeat
 from multiprocessing import Pool, freeze_support, Lock, Process, Manager
@@ -120,19 +118,10 @@ def parse_file_size(file_size_string):
         return False
 
 
-
-#
-# Global lock for progress bar functionality
-#
-tqdm_lock = Lock()
-
 def init_child_process(write_lock):
     """
-    Provide tqdm with the lock from the parent app.
-    This is necessary on Windows to avoid racing conditions.
     """
-    #tqdm.set_lock(write_lock)
-
+    pass
 
 def run_benchmark(file_create_benchmark, \
                   filecount, threadcount, deviation, blocksize, \
@@ -219,9 +208,7 @@ def file_create_benchmark(task_id, file_ids, filesize, deviation, \
 
     randdata = get_random_data(blocksize)
 
-    #
-    # Initialize the tqdm progress bar
-    #
+
     start_time = time.time()
     start_barrier.wait()
     for i in range(len(file_ids)):
@@ -283,9 +270,6 @@ def file_write_benchmark(task_id, file_ids, filesize, deviation, \
 
     randdata = get_random_data(blocksize)
 
-    #
-    # Initialize the tqdm progress bar
-    #
     start_time = time.time()
     start_barrier.wait()
     for i in range(len(file_ids)):
@@ -346,9 +330,6 @@ def file_linear_read_benchmark(task_id, file_ids, filesize, deviation, \
           + " | " + "?" \
           + "/s"
 
-    #
-    # Initialize the tqdm progress bar
-    #
     outfile = open("/dev/null", "wb")
     start_time = time.time()
     start_barrier.wait()
@@ -412,9 +393,6 @@ def file_random_read_benchmark(task_id, file_ids, filesize, deviation, \
           + " | " + "?" \
           + "/s"
 
-    #
-    # Initialize the tqdm progress bar
-    #
     outfile = open("/dev/null", "wb")
     start_time = time.time()
     start_barrier.wait()
