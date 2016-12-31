@@ -136,6 +136,20 @@ class FileOverwriteThread(threading.Thread):
             self.thread_data_count[self.thread_id] += written_bytes
         pass
 
+
+class FileLinearReadThread(threading.Thread):
+
+    def __init__(self, thread_id, file_ids, thread_data_count):
+        NaiveThread.__init__(self, thread_id, file_ids, thread_data_count)
+
+    def run(self):
+        self.thread_data_count[self.thread_id] = 0
+        for i in tqdm(range(len(self.file_ids)), \
+                      desc="Thread: "+str(self.thread_id), \
+                      position=self.thread_id, leave=True):
+
+
+
 #
 # This function parses the file sizes supporting both conventions 
 # (i.e. KiB and KB)
@@ -387,17 +401,14 @@ if __name__ == '__main__':
         for tidx in range(threadcount):
             r = range(int(tidx*(filecount/threadcount)), \
                       int((tidx+1)*(filecount/threadcount)-1))
-            print("Starting threads for range: ", r)
             thread = FileCreateThread(tidx, list(r), threads_data_written)
             thread.start()
             threads.append(thread)
-
         #
         # Wait for the threads to complete
         #
         for tidx in threads:
             tidx.join()
-
 
         create_files_time = time.time() - starttime
         total_size = sum(threads_data_written.values())
@@ -408,37 +419,34 @@ if __name__ == '__main__':
               + str(humanize.naturalsize(total_size/create_files_time) ) + "/s")
         system(flush)
 
-    sys.exit(0)
+
 
     #
     # Overwrite files using /dev/random
     #
     threads = []
     threads_data_written = {}
-    print("\nPerform write test:", file=sys.stderr)
+    print("\nPerform write to existing files test:", file=sys.stderr)
     starttime = time.time()
     total_size = 0
-    for i in tqdm(range(filecount)):#      if filecount<10 else int(filecount / 10))):
-        rand_size = get_random_file_size(deviation)
-        outfile = open("naive-bench-data/" \
-                  + str(int(random.random() * filecount)), "wb")
-        
-        #
-        # Write the blocks of size 'blocksize'
-        #
-        written_bytes = 0
-        while(written_bytes + 
-            blocksize < rand_size):
-            written_bytes += outfile.write(randfile.read(blocksize))
 
-        #
-        # Write remainder of the file
-        #
-        written_bytes += outfile.write(randfile.read(rand_size - written_bytes))
-
-        total_size += written_bytes
+    #
+    # Create and start the threads
+    #
+    for tidx in range(threadcount):
+        r = range(int(tidx*(filecount/threadcount)), \
+                  int((tidx+1)*(filecount/threadcount)-1))
+        thread = FileOverwriteThread(tidx, list(r), threads_data_written)
+        thread.start()
+        threads.append(thread)
+    #
+    # Wait for the threads to complete
+    #
+    for tidx in threads:
+        tidx.join()
 
     overwrite_files_time = time.time() - starttime
+    total_size = sum(threads_data_written.values())
     print("Written " + str(humanize.naturalsize(total_size)) \
              + " in " + str(overwrite_files_time) + "s", file=sys.stderr)
     print("Overwrite throughput: " \
@@ -446,6 +454,7 @@ if __name__ == '__main__':
 
     system(flush)
 
+    sys.exit(0)
 
     #
     # Read entire randomly selected files (1/10th of the population)
