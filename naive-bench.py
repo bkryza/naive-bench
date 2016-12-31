@@ -24,131 +24,69 @@
 # OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-import random, time, optparse, humanize, socket, sys, os, re, math, hashlib
-import queue
-import threading
+import random, time, optparse, humanize
+import socket, sys, os, re, math, hashlib
+import functools
+
 from os import system
 from tqdm import tqdm
 from tqdm import trange
-from multiprocessing import Lock
+from functools import partial
+from itertools import repeat
+from multiprocessing import Pool, freeze_support, Lock, Process, Manager
 
+#
+# Global constants
+#
 kibybytes = ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB']
 kilobytes = ['KB', 'MB', 'GB', 'TB', 'PB', 'EB']
 
-tdqm_lock = Lock()
-
+process_manager = Manager()
 
 #
-# Get random file size
+# CSV file row field order
+# - STORAGE NAME
+# - NUMBER OF FILES
+# - AVERAGE FILE SIZE
+# - FILE CREATION TIME
+# - FILE WRITING TIME
+# - LINEAR READS TIME
+# - RANDOM READS TIME
+# - DELETE TIME
 #
-def get_random_file_size(dev):
+
+#
+# Initialize CSV column labels
+#
+storage_name_label = "STORAGE NAME"
+number_files_label = "FILE COUNT"
+average_file_size_label = "AVERAGE FILE SIZE"
+create_files_label = "CREATE"
+overwrite_files_label = "WRITE"
+linear_read_label = "LINEAR_READ"
+random_read_label = "RANDOM_READ"
+delete_label = "DELETE"
+
+__test_data_dir = "naive-bench-data"
+
+
+
+def get_random_file_size(filesize, dev):
+    """
+    Get randomized file size based on average 'filesize' and deviation range.
+    """
     min_range = (1.0-dev)*filesize
     max_range = (1.0+dev)*filesize
     return int( (max_range-min_range)*random.random() + min_range )
 
-
-
-class NaiveThread(threading.Thread):
-
-    def __init__(self, thread_id, file_ids, thread_data_count):
-        threading.Thread.__init__(self)
-        self.thread_id = thread_id
-        self.file_ids = file_ids
-        self.thread_data_count = thread_data_count
-    
-    def run(self):
-        pass
-        # print ("Starting " + self.name)
-        # # Get lock to synchronize threads
-        # threadLock.acquire()
-        # print_time(self.name, self.counter, 3)
-        # # Free lock to release next thread
-        # threadLock.release()
-
-
-
-#
-# Benchmark which creates the test files and writes specified amount
-# of random data into them
-#
-class FileCreateThread(threading.Thread):
-
-    def __init__(self, thread_id, file_ids, thread_data_count):
-        NaiveThread.__init__(self, thread_id, file_ids, thread_data_count)
-
-    def run(self):
-        self.thread_data_count[self.thread_id] = 0
-        for i in tqdm(range(len(self.file_ids)), \
-                      desc="Thread: "+str(self.thread_id), \
-                      position=self.thread_id, leave=False, file=sys.stderr):
-
-            #
-            # Create random size file
-            #
-            rand_size = get_random_file_size(deviation)
-            outfile = open("naive-bench-data/" + str(self.file_ids[i]), "wb")
-
-            #
-            # Rewrite random device to the output file in 'blocksize' blocks
-            #
-            written_bytes = 0
-            while(written_bytes + blocksize < rand_size):
-                written_bytes += outfile.write(randfile.read(blocksize))
-
-            #
-            # Write remainder of the file
-            #
-            written_bytes += outfile.write(randfile.read(rand_size - written_bytes))
-
-            self.thread_data_count[self.thread_id] += written_bytes
-        pass
-
-
-class FileOverwriteThread(threading.Thread):
-
-    def __init__(self, thread_id, file_ids, thread_data_count):
-        NaiveThread.__init__(self, thread_id, file_ids, thread_data_count)
-
-    def run(self):
-        self.thread_data_count[self.thread_id] = 0
-        for i in tqdm(range(len(self.file_ids)), \
-                      desc="Thread: "+str(self.thread_id), \
-                      position=self.thread_id, leave=True):
-
-            #
-            # Create random size file
-            #
-            rand_size = get_random_file_size(deviation)
-            outfile = open("naive-bench-data/" + str(self.file_ids[i]), "wb")
-
-            #
-            # Rewrite random device to the output file in 'blocksize' blocks
-            #
-            written_bytes = 0
-            while(written_bytes + blocksize < rand_size):
-                written_bytes += outfile.write(randfile.read(blocksize))
-
-            #
-            # Write remainder of the file
-            #
-            written_bytes += outfile.write(randfile.read(rand_size - written_bytes))
-
-            self.thread_data_count[self.thread_id] += written_bytes
-        pass
-
-
-class FileLinearReadThread(threading.Thread):
-
-    def __init__(self, thread_id, file_ids, thread_data_count):
-        NaiveThread.__init__(self, thread_id, file_ids, thread_data_count)
-
-    def run(self):
-        self.thread_data_count[self.thread_id] = 0
-        for i in tqdm(range(len(self.file_ids)), \
-                      desc="Thread: "+str(self.thread_id), \
-                      position=self.thread_id, leave=True):
-
-
+def get_random_data(size):
+    #
+    # Open the random device for writing test files
+    #
+    randfile = open("/dev/urandom", "rb")
+    randdata = randfile.read(size)
+    randfile.close()
+    return randdata
 
 #
 # This function parses the file sizes supporting both conventions 
@@ -180,6 +118,343 @@ def parse_file_size(file_size_string):
         except ValueError:
             return float('nan')
         return False
+
+
+
+#
+# Global lock for progress bar functionality
+#
+tqdm_lock = Lock()
+
+def init_child_process(write_lock):
+    """
+    Provide tqdm with the lock from the parent app.
+    This is necessary on Windows to avoid racing conditions.
+    """
+    #tqdm.set_lock(write_lock)
+
+
+def run_benchmark(file_create_benchmark, \
+                  filecount, threadcount, deviation, blocksize, \
+                  threads_results, threads_progress_messages):
+    """
+    This a generic function for running naive benchmarks
+    """
+
+    start_barrier = Manager().Barrier(threadcount+1)
+
+    #
+    # Prepapre a list of arguments for each benchmark task
+    #
+    file_create_benchmark_args = []
+    for tidx in range(threadcount):
+
+        r = range(int(tidx*(filecount/threadcount)), \
+                  int((tidx+1)*(filecount/threadcount)-1))
+
+        file_create_benchmark_args.append(\
+            (tidx, r, filesize, deviation, blocksize, __test_data_dir, \
+               threads_results, threads_progress_messages, start_barrier))
+        threads_results[tidx] = 0
+        threads_progress_messages[tidx] = "Starting task "+str(tidx)
+
+    #
+    # Create the process pool and run the benchmark
+    #
+    progress_bars = []
+    for i in range(threadcount):
+        child = Process(target=file_create_benchmark, \
+                        args=file_create_benchmark_args[i])
+        child.start()
+        threads.append(child)
+
+    #
+    # Wait for all benchmark tasks to initialize
+    #
+    start_barrier.wait()
+
+    start_time = time.time()
+    #
+    # Wait for the threads to complete and printout the progress 
+    #
+    #time.sleep(0.5)
+    while any(thread.is_alive() for thread in threads):
+        time.sleep(0.5)
+        for i in range(threadcount):
+            print(threads_progress_messages[i])
+        for i in range(threadcount):
+            sys.stdout.write("\x1b[A")
+
+    for i in range(threadcount):
+        print(threads_progress_messages[i])
+
+    real_execution_time = time.time() - start_time
+
+    return real_execution_time
+
+
+def file_create_benchmark(task_id, file_ids, filesize, deviation, \
+                          blocksize, test_data_dir, \
+                          thread_results, thread_progress_messages, \
+                          start_barrier):
+    """
+    Task which creates a set of test files and measures 
+    """
+
+    total_written_bytes = 0
+
+    #
+    # Generate random file sizes and calculate total size for this task
+    #
+    random_file_sizes = \
+                  [get_random_file_size(filesize, deviation) for i in file_ids]
+    total_size_to_write = sum(random_file_sizes)
+
+    thread_progress_messages[task_id] = \
+            "Task # " + str(task_id) + ": Written " \
+          + humanize.naturalsize(0) \
+          + " of " + humanize.naturalsize(total_size_to_write) \
+          + " | " + "?" \
+          + "/s"
+
+    randdata = get_random_data(blocksize)
+
+    #
+    # Initialize the tqdm progress bar
+    #
+    start_time = time.time()
+    start_barrier.wait()
+    for i in range(len(file_ids)):
+        #
+        # Create random size file
+        #
+        rand_size = random_file_sizes[i]
+        outfile = open(test_data_dir + "/" + str(file_ids[i]), "wb")
+        #
+        # Rewrite random device to the output file in 'blocksize' blocks
+        #
+        file_written_bytes = 0
+        while(file_written_bytes + blocksize < rand_size):
+            block_written_bytes = outfile.write(randdata)
+            file_written_bytes += block_written_bytes
+            total_written_bytes += block_written_bytes
+            # 
+            # Format progress message
+            # 
+            thread_progress_messages[task_id] = \
+                    "Task # " + str(task_id) + ": Written " \
+                  + humanize.naturalsize(total_written_bytes) \
+                  + " of " + humanize.naturalsize(total_size_to_write) \
+                  + " | " + humanize.naturalsize(total_written_bytes/(time.time()-start_time)) \
+                  + "/s       "
+
+        #
+        # Write remainder of the file
+        #
+        block_written_bytes = \
+                    outfile.write(randdata[0:rand_size - file_written_bytes])
+        total_written_bytes += block_written_bytes
+
+    end_time = time.time() - start_time
+    thread_results[task_id] = (total_written_bytes, end_time)
+
+
+
+def file_write_benchmark(task_id, file_ids, filesize, deviation, \
+                          blocksize, test_data_dir, \
+                          thread_results, thread_progress_messages, \
+                          start_barrier):
+
+    total_written_bytes = 0
+
+    #
+    # Generate random file sizes and calculate total size for this task
+    #
+    random_file_sizes = \
+                  [get_random_file_size(filesize, deviation) for i in file_ids]
+    total_size_to_write = sum(random_file_sizes)
+
+    thread_progress_messages[task_id] = \
+            "Task # " + str(task_id) + ": Written " \
+          + humanize.naturalsize(0) \
+          + " of " + humanize.naturalsize(total_size_to_write) \
+          + " | " + "?" \
+          + "/s"
+
+    randdata = get_random_data(blocksize)
+
+    #
+    # Initialize the tqdm progress bar
+    #
+    start_time = time.time()
+    start_barrier.wait()
+    for i in range(len(file_ids)):
+        #
+        # Create random size file
+        #
+        rand_size = random_file_sizes[i]
+        outfile = open(test_data_dir + "/" + str(file_ids[i]), "wb")
+        #
+        # Rewrite random device to the output file in 'blocksize' blocks
+        #
+        file_written_bytes = 0
+        while(file_written_bytes + blocksize < rand_size):
+            block_written_bytes = outfile.write(randdata)
+            file_written_bytes += block_written_bytes
+            total_written_bytes += block_written_bytes
+            # 
+            # Format progress message
+            # 
+            thread_progress_messages[task_id] = \
+                    "Task # " + str(task_id) + ": Written " \
+                  + humanize.naturalsize(total_written_bytes) \
+                  + " of " + humanize.naturalsize(total_size_to_write) \
+                  + " | " + humanize.naturalsize(total_written_bytes/(time.time()-start_time)) \
+                  + "/s       "
+
+        #
+        # Write remainder of the file
+        #
+        block_written_bytes = \
+                    outfile.write(randdata[0:rand_size - file_written_bytes])
+        total_written_bytes += block_written_bytes
+
+    end_time = time.time() - start_time
+    thread_results[task_id] = (total_written_bytes, end_time)
+
+
+def file_linear_read_benchmark(task_id, file_ids, filesize, deviation, \
+                               blocksize, test_data_dir, \
+                               thread_results, thread_progress_messages, \
+                               start_barrier):
+
+    total_read_bytes = 0
+
+    #
+    # Calculate the size of files to read
+    #
+    file_sizes = {}
+    for f in file_ids:
+        file_sizes[f] = os.path.getsize(test_data_dir+"/"+str(f))
+
+    total_size_to_read = sum(file_sizes.values())
+
+    thread_progress_messages[task_id] = \
+            "Task # " + str(task_id) + ": Read " \
+          + humanize.naturalsize(0) \
+          + " of " + humanize.naturalsize(total_size_to_read) \
+          + " | " + "?" \
+          + "/s"
+
+    #
+    # Initialize the tqdm progress bar
+    #
+    outfile = open("/dev/null", "wb")
+    start_time = time.time()
+    start_barrier.wait()
+    for i in range(len(file_ids)):
+        #
+        # Open file
+        #
+        infile = open(test_data_dir + "/" + str(file_ids[i]), "rb")
+
+        #
+        # Read the file in blocks
+        #
+        file_read_bytes = 0
+        
+        while(file_read_bytes + blocksize < file_sizes[file_ids[i]]):
+            block_read_bytes = outfile.write(infile.read(blocksize))
+            file_read_bytes += block_read_bytes
+            total_read_bytes += block_read_bytes
+            # 
+            # Format progress message
+            # 
+            thread_progress_messages[task_id] = \
+                    "Task # " + str(task_id) + ": Read " \
+                  + humanize.naturalsize(total_read_bytes) \
+                  + " of " + humanize.naturalsize(total_size_to_read) \
+                  + " | " + humanize.naturalsize(total_read_bytes/(time.time()-start_time)) \
+                  + "/s       "
+
+        #
+        # Write remainder of the file
+        #
+        block_read_bytes = \
+            outfile.write(infile.read(file_sizes[file_ids[i]]))
+        total_read_bytes += block_read_bytes
+
+    outfile.close()
+    end_time = time.time() - start_time
+    thread_results[task_id] = (total_read_bytes, end_time)
+
+
+def file_random_read_benchmark(task_id, file_ids, filesize, deviation, \
+                               blocksize, test_data_dir, \
+                               thread_results, thread_progress_messages, \
+                               start_barrier):
+
+    total_read_bytes = 0
+
+    #
+    # Calculate the size of files to read
+    #
+    file_sizes = {}
+    for f in file_ids:
+        file_sizes[f] = os.path.getsize(test_data_dir+"/"+str(f))
+
+    total_size_to_read = sum(file_sizes.values())
+
+    thread_progress_messages[task_id] = \
+            "Task # " + str(task_id) + ": Read " \
+          + humanize.naturalsize(0) \
+          + " of " + humanize.naturalsize(total_size_to_read) \
+          + " | " + "?" \
+          + "/s"
+
+    #
+    # Initialize the tqdm progress bar
+    #
+    outfile = open("/dev/null", "wb")
+    start_time = time.time()
+    start_barrier.wait()
+    for i in range(len(file_ids)):
+        #
+        # Open file
+        #
+        infile = open(test_data_dir + "/" + str(file_ids[i]), "rb")
+        infile_size = file_sizes[file_ids[i]]
+
+        #
+        # Read the file in blocks
+        #
+        file_read_bytes = 0
+        
+        while(file_read_bytes + blocksize < infile_size):
+            infile.seek(int(random.random()*(int(infile_size/blocksize)-1)), 0)            
+            block_read_bytes = outfile.write(infile.read(blocksize))
+            file_read_bytes += block_read_bytes
+            total_read_bytes += block_read_bytes
+            # 
+            # Format progress message
+            # 
+            thread_progress_messages[task_id] = \
+                    "Task # " + str(task_id) + ": Read " \
+                  + humanize.naturalsize(total_read_bytes) \
+                  + " of " + humanize.naturalsize(total_size_to_read) \
+                  + " | " + humanize.naturalsize(total_read_bytes/(time.time()-start_time)) \
+                  + "/s       "
+
+        #
+        # Write remainder of the file
+        #
+        block_read_bytes = \
+            outfile.write(infile.read(file_sizes[file_ids[i]]))
+        total_read_bytes += block_read_bytes
+
+    outfile.close()
+    end_time = time.time() - start_time
+    thread_results[task_id] = (total_read_bytes, end_time)
 
 
 
@@ -289,9 +564,15 @@ if __name__ == '__main__':
         print ( sys.platform, " platform is not supported - exiting." )
         sys.exit(1)
 
+    #
+    # Calculate available disk space on the current volume
+    #
     st = os.statvfs(os.getcwd())
     available_disk_space = st.f_bavail * st.f_frsize
 
+    #
+    # Printout basic benchmark parameters
+    #
     print("------------------------------", file=sys.stderr)
     print('Starting test')
     print("  Number of files: ", filecount, file=sys.stderr)
@@ -327,30 +608,6 @@ if __name__ == '__main__':
         sys.exit(2)
 
     #
-    # CSV file row field order
-    # - STORAGE NAME
-    # - NUMBER OF FILES
-    # - AVERAGE FILE SIZE
-    # - FILE CREATION TIME
-    # - FILE WRITING TIME
-    # - LINEAR READS TIME
-    # - RANDOM READS TIME
-    # - DELETE TIME
-    #
-
-    #
-    # Initialize CSV column labels
-    #
-    storage_name_label = "STORAGE NAME"
-    number_files_label = "FILE COUNT"
-    average_file_size_label = "AVERAGE FILE SIZE"
-    create_files_label = "CREATE"
-    overwrite_files_label = "WRITE"
-    linear_read_label = "LINEAR_READ"
-    random_read_label = "RANDOM_READ"
-    delete_label = "DELETE"
-
-    #
     # Initialize time variables
     #
     create_files_time = float('NaN')
@@ -359,177 +616,139 @@ if __name__ == '__main__':
     random_read_time = float('NaN')
     delete_time = float('NaN')
 
-    #
-    # Setup threading
-    #
-    task_queue = queue.Queue(filecount)
 
-
+    print("\n\nCreating test folder 'naive-bench-data':", file=sys.stderr)
     #
-    # Open the random device for writing test files
+    # Cleanup old test data and 
     #
-    randfile = open("/dev/urandom", "rb")
-
-    if not options.readonly:
-        print("\n\nCreating test folder 'naive-bench-data':", file=sys.stderr)
-        #
-        # Cleanup old test data and 
-        #
-        system("rm -rf naive-bench-data")
-        starttime = time.time()
-        system("mkdir naive-bench-data")
-        endtime = time.time() - starttime
-        print("Created test folder in " + str(endtime) + "s", file=sys.stderr)
+    system("rm -rf naive-bench-data")
+    starttime = time.time()
+    system("mkdir naive-bench-data")
+    endtime = time.time() - starttime
+    print("Created test folder in " + str(endtime) + "s", file=sys.stderr)
 
     system(flush)
 
+
+
+    ##########
     #
-    # Create files with random content
+    # Start file creation benchmark
     #
-    threads = []
-    threads_data_written = {}
-    if not options.readonly:
-        print("\nCreating test files:", file=sys.stderr)
-        starttime = time.time()
-        total_size = 0
-
-        starttime = time.time()
-
-        #
-        # Create and start the threads
-        #
-        for tidx in range(threadcount):
-            r = range(int(tidx*(filecount/threadcount)), \
-                      int((tidx+1)*(filecount/threadcount)-1))
-            thread = FileCreateThread(tidx, list(r), threads_data_written)
-            thread.start()
-            threads.append(thread)
-        #
-        # Wait for the threads to complete
-        #
-        for tidx in threads:
-            tidx.join()
-
-        create_files_time = time.time() - starttime
-        total_size = sum(threads_data_written.values())
-        print("Created " + str(filecount) + " files of total size " \
-                 + str(humanize.naturalsize(total_size)) + " in " \
-                 + str(create_files_time) + "s", file=sys.stderr)
-        print("Create throughput: " \
-              + str(humanize.naturalsize(total_size/create_files_time) ) + "/s")
-        system(flush)
-
-
-
-    #
-    # Overwrite files using /dev/random
     #
     threads = []
-    threads_data_written = {}
-    print("\nPerform write to existing files test:", file=sys.stderr)
-    starttime = time.time()
-    total_size = 0
+    threads_results = process_manager.dict()
+    threads_progress_messages = process_manager.dict()
+    print("\nCreating test files:", file=sys.stderr)
+    
+    create_files_time = run_benchmark(file_create_benchmark, \
+                               filecount, threadcount, deviation, \
+                               blocksize, threads_results, \
+                               threads_progress_messages)
 
     #
-    # Create and start the threads
+    # Calculate total benchmark size and time
     #
-    for tidx in range(threadcount):
-        r = range(int(tidx*(filecount/threadcount)), \
-                  int((tidx+1)*(filecount/threadcount)-1))
-        thread = FileOverwriteThread(tidx, list(r), threads_data_written)
-        thread.start()
-        threads.append(thread)
-    #
-    # Wait for the threads to complete
-    #
-    for tidx in threads:
-        tidx.join()
+    total_size = sum(s[0] for s in threads_results.values())
 
-    overwrite_files_time = time.time() - starttime
-    total_size = sum(threads_data_written.values())
-    print("Written " + str(humanize.naturalsize(total_size)) \
-             + " in " + str(overwrite_files_time) + "s", file=sys.stderr)
+    print("")
+    print("Created " + str(filecount) + " files of total size " \
+          + str(humanize.naturalsize(total_size)) + " in " \
+          + str(create_files_time) + "s", file=sys.stderr)
+    print("Create throughput: " \
+          + str(humanize.naturalsize(total_size/create_files_time) ) + "/s")
+    print("")
+    system(flush)
+
+
+    ##########
+    #
+    # Start file overwrite benchmark
+    #
+    #
+    threads = []
+    threads_results = process_manager.dict()
+    threads_progress_messages = process_manager.dict()
+    print("\nOverwriting files:", file=sys.stderr)
+    
+    overwrite_files_time = run_benchmark(file_write_benchmark, \
+                                         filecount, threadcount, deviation, \
+                                         blocksize, threads_results, \
+                                         threads_progress_messages)
+
+    #
+    # Calculate total benchmark size and time
+    #
+    total_size = sum(s[0] for s in threads_results.values())
+
+    print("")
+    print("Overwritten " + str(filecount) + " files with total size " \
+          + str(humanize.naturalsize(total_size)) + " in " \
+          + str(overwrite_files_time) + "s", file=sys.stderr)
     print("Overwrite throughput: " \
           + str(humanize.naturalsize(total_size/overwrite_files_time) ) + "/s")
-
+    print("")
     system(flush)
 
-    sys.exit(0)
+
+    ##########
+    #
+    # Start linear read benchmark
+    #
+    #
+    threads = []
+    threads_results = process_manager.dict()
+    threads_progress_messages = process_manager.dict()
+    print("\nReading files:", file=sys.stderr)
+    
+    linear_read_time = run_benchmark(file_linear_read_benchmark, \
+                                         filecount, threadcount, deviation, \
+                                         blocksize, threads_results, \
+                                         threads_progress_messages)
 
     #
-    # Read entire randomly selected files (1/10th of the population)
+    # Calculate total benchmark size and time
     #
-    used_files = []
-    total_read_size = 0
-    if not options.writeonly:
-        print("\nPerforming linear read test:", file=sys.stderr)
-        starttime = time.time()
-        outfile = open("/dev/null", "wb")
-        for i in tqdm(range(filecount)): # if filecount<10 else int(filecount / 10))):
-            file_id = int(random.random() * filecount)
-            used_files.append(file_id)
-            infile = open("naive-bench-data/" \
-                     + str(file_id), "rb")
-            written_bytes += outfile.write(infile.read(blocksize));
-            total_read_size += written_bytes
-            while(written_bytes == options.blocksize):
-                written_bytes = outfile.write(randfile.read(blocksize))
-                total_read_size += written_bytes
-        linear_read_time = time.time() - starttime
-        print("Read " + str(humanize.naturalsize(total_read_size)) + " in " \
-              + str(linear_read_time) + "s", file=sys.stderr)
-        print("Linear read throughput: " \
-              + str(humanize.naturalsize(total_read_size/linear_read_time) ) + "/s")
-        system(flush)
+    total_size = sum(s[0] for s in threads_results.values())
+
+    print("")
+    print("Read " + str(filecount) + " files with total size " \
+          + str(humanize.naturalsize(total_size)) + " in " \
+          + str(linear_read_time) + "s", file=sys.stderr)
+    print("Linear read throughput: " \
+          + str(humanize.naturalsize(total_size/linear_read_time) ) + "/s")
+    print("")
+    system(flush)
+
+
+    ##########
+    #
+    # Start random read benchmark
+    #
+    #
+    threads = []
+    threads_results = process_manager.dict()
+    threads_progress_messages = process_manager.dict()
+    print("\nReading files:", file=sys.stderr)
+    
+    random_read_time = run_benchmark(file_random_read_benchmark, \
+                                         filecount, threadcount, deviation, \
+                                         blocksize, threads_results, \
+                                         threads_progress_messages)
 
     #
-    # Perform 10 random reads on 1/10th of files
-    # Each read reads options.blocksize bytes
+    # Calculate total benchmark size and time
     #
-    #
-    print("\nPerforming random read test:", file=sys.stderr)
-    read_block_size = blocksize
-    starttime = time.time()
-    outfile = open("/dev/null", "wb")
-    total_read_size = 0
-    for i in tqdm(range(filecount)):# if filecount<10 else int(filecount / 10))):
-        #
-        # Try to randomly select a file that has not been yet used
-        #
-        file_id = int(random.random() * filecount)
-        while(not file_id in used_files):
-            file_id = int(random.random() * filecount)
+    total_size = sum(s[0] for s in threads_results.values())
 
-        used_files.append(file_id)
-        infile_path = "naive-bench-data/" + str(file_id)
-        #
-        # Check the test file size and make sure it's not too small
-        #
-        infile_size = os.path.getsize(infile_path)
-        if infile_size < 2*read_block_size+1:
-            continue;
-        #
-        # Open the file for reading, select 10 random 'blocksize' blocks and read 
-        # them
-        # 
-        infile = open(infile_path, "rb")
-        for i in range(0, int(infile_size/read_block_size)-1):
-            infile.seek(int(random.random()*(int(infile_size/read_block_size)-1)), \
-                        0)
-            total_read_size += outfile.write(infile.read(read_block_size));
-    random_read_time = time.time() - starttime
-    print("Read " + str(humanize.naturalsize(total_read_size)) + " in " \
-              + str(random_read_time) + "s", file=sys.stderr)
+    print("")
+    print("Read " + str(filecount) + " files with total size " \
+          + str(humanize.naturalsize(total_size)) + " in " \
+          + str(random_read_time) + "s", file=sys.stderr)
     print("Random read throughput: " \
-          + str(humanize.naturalsize(total_read_size/random_read_time) ) + "/s")
+          + str(humanize.naturalsize(total_size/random_read_time) ) + "/s")
+    print("")
     system(flush)
-
-    # #
-    # # Calculate SHA256 from a random file
-    # #
-    # file_id = int(random.random() * filecount)
-    # while(not file_id in used_files):
-    #     file_id = int(random.random() * filecount)
 
 
     #
@@ -543,6 +762,7 @@ if __name__ == '__main__':
         print("Deleted all files in " + str(delete_time) + "s", file=sys.stderr)
         system(flush)
 
+        
     #
     # Print CSV on stdout
     #
