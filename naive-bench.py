@@ -728,8 +728,9 @@ if __name__ == '__main__':
     endtime = time.time() - starttime
     print("DONE [%d s]\n"%(endtime), file=sys.stderr)
 
+    print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
     drop_caches()
-
+    print(" DONE")
 
     ##########
     #
@@ -759,10 +760,11 @@ if __name__ == '__main__':
          + str(humanize.naturalsize(create_files_bytes_size/create_files_time))\
          + "/s")
     print("")
-    
+
+    print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
     drop_caches()
-
-
+    print(" DONE")
+    
     ##########
     #
     # Start file overwrite benchmark
@@ -793,8 +795,9 @@ if __name__ == '__main__':
           + "/s")
     print("")
     
+    print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
     drop_caches()
-
+    print(" DONE")
 
     ##########
     #
@@ -825,8 +828,9 @@ if __name__ == '__main__':
           + "/s")
     print("")
     
+    print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
     drop_caches()
-
+    print(" DONE")
 
     ##########
     #
@@ -857,8 +861,9 @@ if __name__ == '__main__':
           + "/s")
     print("")
 
+    print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
     drop_caches()
-
+    print(" DONE")
 
     #
     # Delete the entire test folder
