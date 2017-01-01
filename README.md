@@ -35,8 +35,7 @@ Options:
   -c, --csv             Generate CSV output.
   -H, --no-header       Skip CSV header.
   -r, --read-only       This test will only perform read tests. It
-                        assumes that the current folder contains 'naive-bench-
-                        data' folder with test files uniformly numbered
+                        assumes that the current folder contains 'naive-bench-data' folder with test files uniformly numbered
                         in the specified range.
   -w, --write-only      This test will only perform write tests.     This
                         option can be used to create data on storage for
@@ -55,8 +54,5 @@ Options:
 
 Create 100 1GB files by writing and reading blocks of 10MB using 10 processes.
 ```bash
-./naive-bench.py --filecount 100 --filesize 1GB --blocksize 10MB  -t 10  -n "MacBook_SSD"
+./naive-bench.py --filecount 100 --filesize 1GB --blocksize 10MB  -t 10
 ```
-
-
-

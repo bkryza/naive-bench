@@ -159,7 +159,7 @@ def format_progress_message(name, progress, total, suffix, width=40, \
         return name + (" [%-40s] %d%%" % ('='*p, percentage)) + ", " \
             + humanize.naturalsize(progress)  + " of "\
             + humanize.naturalsize(total)  \
-            + "| " \
+            + " | " \
             + suffix + "        "
 
 
@@ -297,6 +297,18 @@ def file_create_benchmark(task_id, file_ids, filesize, deviation, \
         total_written_bytes += block_written_bytes
 
     end_time = time.time() - start_time
+
+    current_throughput = \
+        humanize.naturalsize(total_written_bytes/(time.time()-start_time)) \
+        + "/s"
+
+    thread_progress_messages[task_id] = \
+        format_progress_message("Task #" + str(task_id),
+                                total_written_bytes,
+                                total_size_to_write,
+                                current_throughput,
+                                width=40, numtype='filesize')
+
     thread_results[task_id] = (total_written_bytes, end_time)
 
 
@@ -366,6 +378,18 @@ def file_write_benchmark(task_id, file_ids, filesize, deviation, \
         total_written_bytes += block_written_bytes
 
     end_time = time.time() - start_time
+
+    current_throughput = \
+        humanize.naturalsize(total_written_bytes/(time.time()-start_time)) \
+        + "/s"
+
+    thread_progress_messages[task_id] = \
+        format_progress_message("Task #" + str(task_id),
+                                total_written_bytes,
+                                total_size_to_write,
+                                current_throughput,
+                                width=40, numtype='filesize')
+
     thread_results[task_id] = (total_written_bytes, end_time)
 
 
@@ -437,6 +461,16 @@ def file_linear_read_benchmark(task_id, file_ids, filesize, deviation, \
 
     outfile.close()
     end_time = time.time() - start_time
+    current_throughput = \
+        humanize.naturalsize(total_read_bytes/(time.time()-start_time)) \
+        + "/s"
+
+    thread_progress_messages[task_id] = \
+        format_progress_message("Task #" + str(task_id),
+                                total_read_bytes,
+                                total_size_to_read,
+                                current_throughput,
+                                width=40, numtype='filesize')
     thread_results[task_id] = (total_read_bytes, end_time)
 
 
@@ -510,6 +544,15 @@ def file_random_read_benchmark(task_id, file_ids, filesize, deviation, \
 
     outfile.close()
     end_time = time.time() - start_time
+    current_throughput = \
+        humanize.naturalsize(total_read_bytes/(time.time()-start_time)) \
+        + "/s"
+    thread_progress_messages[task_id] = \
+        format_progress_message("Task #" + str(task_id),
+                                total_read_bytes,
+                                total_size_to_read,
+                                current_throughput,
+                                width=40, numtype='filesize')
     thread_results[task_id] = (total_read_bytes, end_time)
 
 
@@ -606,9 +649,14 @@ if __name__ == '__main__':
         blocksize = int(blocksize)
 
     if deviation < 0.0 or deviation > 0.9:
-        print("Deviation must be in range [0.0, 0.9] - exiting.", file=sys.stderr)  
+        print("Deviation must be in range [0.0, 0.9] - exiting.", \
+              file=sys.stderr)  
         sys.exit(2)
 
+    if threadcount>filecount or filecount%threadcount != 0:
+        print("Total file count must be a multiple of thread count - exiting.", \
+              file=sys.stderr)
+        sys.exit(2)
 
     #
     # Calculate available disk space on the current volume
@@ -679,7 +727,7 @@ if __name__ == '__main__':
     system("mkdir naive-bench-data")
     endtime = time.time() - starttime
     print("DONE [%d s]\n"%(endtime), file=sys.stderr)
-    
+
     drop_caches()
 
 
