@@ -48,6 +48,7 @@ Options:
                         ((1.0-deviation)*filesize, (1.0+deviation)*filesize].
   -t THREADCOUNT, --thread-count=THREADCOUNT
                         Number of threads to execute for each test.
+  -P, --no-purge        If specified, disables cache clearing between steps.
 ```
 
 ## Examples

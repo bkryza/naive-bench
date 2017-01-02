@@ -625,6 +625,11 @@ if __name__ == '__main__':
         help="""Number of threads to execute for each test.""", 
         default=4)
 
+    parser.add_option('-P', '--no-purge',
+        action="store_true", dest="nopurge",
+        help="""If specified, disables cache clearing between steps.""", 
+        default=False)
+
     #
     # Parse the command line
     #
@@ -635,6 +640,7 @@ if __name__ == '__main__':
     blocksize = parse_file_size(options.blocksize)
     deviation = options.deviation
     threadcount = options.threadcount
+    dropcaches = not options.nopurge
 
     if math.isnan(filesize):
         print("Invalid filesize - exiting.", file=sys.stderr)  
@@ -647,6 +653,10 @@ if __name__ == '__main__':
         sys.exit(2)
     else:
         blocksize = int(blocksize)
+
+    if blocksize > filesize:
+        print("Blocksize must not be larger than filesize - exiting.")
+        sys.exit(2)
 
     if deviation < 0.0 or deviation > 0.9:
         print("Deviation must be in range [0.0, 0.9] - exiting.", \
@@ -728,9 +738,10 @@ if __name__ == '__main__':
     endtime = time.time() - starttime
     print("DONE [%d s]\n"%(endtime), file=sys.stderr)
 
-    print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
-    drop_caches()
-    print(" DONE")
+    if dropcaches:
+        print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
+        drop_caches()
+        print(" DONE")
 
     ##########
     #
@@ -761,10 +772,12 @@ if __name__ == '__main__':
          + "/s")
     print("")
 
-    print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
-    drop_caches()
-    print(" DONE")
-    
+    if dropcaches:
+        print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
+        drop_caches()
+        print(" DONE")
+
+
     ##########
     #
     # Start file overwrite benchmark
@@ -795,9 +808,11 @@ if __name__ == '__main__':
           + "/s")
     print("")
     
-    print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
-    drop_caches()
-    print(" DONE")
+    if dropcaches:
+        print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
+        drop_caches()
+        print(" DONE")
+
 
     ##########
     #
@@ -828,9 +843,11 @@ if __name__ == '__main__':
           + "/s")
     print("")
     
-    print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
-    drop_caches()
-    print(" DONE")
+    if dropcaches:
+        print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
+        drop_caches()
+        print(" DONE")
+
 
     ##########
     #
@@ -861,9 +878,11 @@ if __name__ == '__main__':
           + "/s")
     print("")
 
-    print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
-    drop_caches()
-    print(" DONE")
+    if dropcaches:
+        print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
+        drop_caches()
+        print(" DONE")
+
 
     #
     # Delete the entire test folder
