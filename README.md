@@ -1,4 +1,7 @@
 # naive-bench
+
+[![Build Status](https://api.travis-ci.org/bkryza/naive-bench.svg?branch=master)](https://travis-ci.org/bkryza/naive-bench)
+
 Simple filesystem performance benchmark, creates X files of size Y, overwrites their content, performs linear read of all files, performs random read (using seek) of all files and finally removes all files.
 
 The benchmark is not focused on throughput primarly, but rather on actual performance as can be experienced by users including possible overhead from file creation and seek operations. The tests can be run in parallel using a specified number of subprocesses ([multiprocessing](https://docs.python.org/3.6/library/multiprocessing.html) library)
