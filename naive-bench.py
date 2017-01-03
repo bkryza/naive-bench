@@ -213,7 +213,7 @@ def run_benchmark(benchmark, \
 
     start_time = time.time()
     #
-    # Wait for the threads to complete and printout the progress every 
+    # Wait for the threads to complete and the progress every 
     # 0.5 second
     #
     time.sleep(0.5)
@@ -225,7 +225,7 @@ def run_benchmark(benchmark, \
             sys.stderr.write("\x1b[A")
 
     for i in range(threadcount):
-        print(threads_progress_messages[i])
+        print(threads_progress_messages[i], file=sys.stderr)
 
     real_execution_time = time.time() - start_time
 
@@ -655,7 +655,8 @@ if __name__ == '__main__':
         blocksize = int(blocksize)
 
     if blocksize > filesize:
-        print("Blocksize must not be larger than filesize - exiting.")
+        print("Blocksize must not be larger than filesize - exiting.", \
+              file=sys.stderr)
         sys.exit(2)
 
     if deviation < 0.0 or deviation > 0.9:
@@ -678,7 +679,7 @@ if __name__ == '__main__':
     # Printout basic benchmark parameters
     #
     print("------------------------------", file=sys.stderr)
-    print('Starting test')
+    print('Starting test', file=sys.stderr)
     print("  Number of files: ", filecount, file=sys.stderr)
     print('  Average file size: ', humanize.naturalsize(filesize), \
           file=sys.stderr)
@@ -689,7 +690,7 @@ if __name__ == '__main__':
           humanize.naturalsize(available_disk_space), file=sys.stderr)
     print('  Number of parallel threads:', \
           threadcount, file=sys.stderr)
-    print('------------------------------')
+    print('------------------------------', file=sys.stderr)
 
 
     #
