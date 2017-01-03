@@ -741,7 +741,7 @@ if __name__ == '__main__':
     if dropcaches:
         print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
         drop_caches()
-        print(" DONE")
+        print(" DONE", file=sys.stderr)
 
     ##########
     #
@@ -763,19 +763,19 @@ if __name__ == '__main__':
     #
     create_files_bytes_size = sum(s[0] for s in threads_results.values())
 
-    print("")
+    print("", file=sys.stderr)
     print("--- CREATED " + str(filecount) + " FILES OF TOTAL SIZE " \
           + str(humanize.naturalsize(create_files_bytes_size)) + " IN " \
           + str(create_files_time) + "s", file=sys.stderr)
     print("--- THROUGHPUT: " \
          + str(humanize.naturalsize(create_files_bytes_size/create_files_time))\
-         + "/s")
-    print("")
+         + "/s", file=sys.stderr)
+    print("", file=sys.stderr)
 
     if dropcaches:
         print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
         drop_caches()
-        print(" DONE")
+        print(" DONE", file=sys.stderr)
 
 
     ##########
@@ -798,20 +798,20 @@ if __name__ == '__main__':
     #
     overwrite_files_bytes_size = sum(s[0] for s in threads_results.values())
 
-    print("")
+    print("", file=sys.stderr)
     print("--- OVERWRITTEN " + str(filecount) + " FILES WITH TOTAL SIZE" \
           + str(humanize.naturalsize(overwrite_files_bytes_size)) + " IN " \
           + str(overwrite_files_time) + "s", file=sys.stderr)
     print("--- THROUGHPUT: " \
           + str(humanize.naturalsize(\
                             overwrite_files_bytes_size/overwrite_files_time)) \
-          + "/s")
-    print("")
+          + "/s", file=sys.stderr)
+    print("", file=sys.stderr)
     
     if dropcaches:
         print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
         drop_caches()
-        print(" DONE")
+        print(" DONE", file=sys.stderr)
 
 
     ##########
@@ -834,19 +834,19 @@ if __name__ == '__main__':
     #
     linear_read_bytes_size = sum(s[0] for s in threads_results.values())
 
-    print("")
+    print("", file=sys.stderr)
     print("--- READ " + str(filecount) + " FILES WITH TOTAL SIZE " \
           + str(humanize.naturalsize(linear_read_bytes_size)) + " IN " \
           + str(linear_read_time) + "s", file=sys.stderr)
     print("--- THROUGHPUT: " \
           + str(humanize.naturalsize(linear_read_bytes_size/linear_read_time)) \
-          + "/s")
-    print("")
+          + "/s", file=sys.stderr)
+    print("", file=sys.stderr)
     
     if dropcaches:
         print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
         drop_caches()
-        print(" DONE")
+        print(" DONE", file=sys.stderr)
 
 
     ##########
@@ -869,19 +869,19 @@ if __name__ == '__main__':
     #
     random_read_bytes_size = sum(s[0] for s in threads_results.values())
 
-    print("")
+    print("", file=sys.stderr)
     print("--- READ " + str(filecount) + " FILES WITH TOTAL SIZE " \
           + str(humanize.naturalsize(random_read_bytes_size)) + " IN " \
           + str(random_read_time) + "s", file=sys.stderr)
     print("--- THROUGHPUT: " \
           + str(humanize.naturalsize(random_read_bytes_size/random_read_time)) \
-          + "/s")
-    print("")
+          + "/s", file=sys.stderr)
+    print("", file=sys.stderr)
 
     if dropcaches:
         print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
         drop_caches()
-        print(" DONE")
+        print(" DONE", file=sys.stderr)
 
 
     #
@@ -894,8 +894,8 @@ if __name__ == '__main__':
         delete_time = time.time() - starttime
         print("DONE [%d s]"%(delete_time), file=sys.stderr)
 
-    print()
-    print()
+    print(file=sys.stderr)
+    print(file=sys.stderr)
 
     #
     # Print CSV on stdout
