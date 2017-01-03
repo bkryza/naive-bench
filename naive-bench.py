@@ -219,7 +219,7 @@ def run_benchmark(benchmark, \
     time.sleep(0.5)
     while any(thread.is_alive() for thread in threads):
         time.sleep(0.5)
-        for i in ranges(threadcount):
+        for i in range(threadcount):
             print(threads_progress_messages[i], file=sys.stderr)
         for i in range(threadcount):
             sys.stderr.write("\x1b[A")
