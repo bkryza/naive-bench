@@ -820,34 +820,35 @@ if __name__ == '__main__':
     # Start linear read benchmark
     #
     #
-    threads = []
-    threads_results = process_manager.dict()
-    threads_progress_messages = process_manager.dict()
-    print("\n--- INITIALIZING FILE LINEAR READ BENCHMARK...\n", file=sys.stderr)
-    
-    linear_read_time = run_benchmark(file_linear_read_benchmark, \
-                                         filecount, threadcount, deviation, \
-                                         blocksize, threads_results, \
-                                         threads_progress_messages)
+    if options.writeonly:
+        threads = []
+        threads_results = process_manager.dict()
+        threads_progress_messages = process_manager.dict()
+        print("\n--- INITIALIZING FILE LINEAR READ BENCHMARK...\n", file=sys.stderr)
+        
+        linear_read_time = run_benchmark(file_linear_read_benchmark, \
+                                             filecount, threadcount, deviation, \
+                                             blocksize, threads_results, \
+                                             threads_progress_messages)
 
-    #
-    # Calculate total benchmark size and time
-    #
-    linear_read_bytes_size = sum(s[0] for s in threads_results.values())
+        #
+        # Calculate total benchmark size and time
+        #
+        linear_read_bytes_size = sum(s[0] for s in threads_results.values())
 
-    print("", file=sys.stderr)
-    print("--- READ " + str(filecount) + " FILES WITH TOTAL SIZE " \
-          + str(humanize.naturalsize(linear_read_bytes_size)) + " IN " \
-          + str(linear_read_time) + "s", file=sys.stderr)
-    print("--- THROUGHPUT: " \
-          + str(humanize.naturalsize(linear_read_bytes_size/linear_read_time)) \
-          + "/s", file=sys.stderr)
-    print("", file=sys.stderr)
-    
-    if dropcaches:
-        print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
-        drop_caches()
-        print(" DONE", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("--- READ " + str(filecount) + " FILES WITH TOTAL SIZE " \
+              + str(humanize.naturalsize(linear_read_bytes_size)) + " IN " \
+              + str(linear_read_time) + "s", file=sys.stderr)
+        print("--- THROUGHPUT: " \
+              + str(humanize.naturalsize(linear_read_bytes_size/linear_read_time)) \
+              + "/s", file=sys.stderr)
+        print("", file=sys.stderr)
+        
+        if dropcaches:
+            print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
+            drop_caches()
+            print(" DONE", file=sys.stderr)
 
 
     ##########
@@ -855,34 +856,35 @@ if __name__ == '__main__':
     # Start random read benchmark
     #
     #
-    threads = []
-    threads_results = process_manager.dict()
-    threads_progress_messages = process_manager.dict()
-    print("\n--- INITIALIZING FILE RANDOM READ BENCHMARK...\n", file=sys.stderr)
-    
-    random_read_time = run_benchmark(file_random_read_benchmark, \
-                                         filecount, threadcount, deviation, \
-                                         blocksize, threads_results, \
-                                         threads_progress_messages)
+    if options.writeonly:
+        threads = []
+        threads_results = process_manager.dict()
+        threads_progress_messages = process_manager.dict()
+        print("\n--- INITIALIZING FILE RANDOM READ BENCHMARK...\n", file=sys.stderr)
+        
+        random_read_time = run_benchmark(file_random_read_benchmark, \
+                                             filecount, threadcount, deviation, \
+                                             blocksize, threads_results, \
+                                             threads_progress_messages)
 
-    #
-    # Calculate total benchmark size and time
-    #
-    random_read_bytes_size = sum(s[0] for s in threads_results.values())
+        #
+        # Calculate total benchmark size and time
+        #
+        random_read_bytes_size = sum(s[0] for s in threads_results.values())
 
-    print("", file=sys.stderr)
-    print("--- READ " + str(filecount) + " FILES WITH TOTAL SIZE " \
-          + str(humanize.naturalsize(random_read_bytes_size)) + " IN " \
-          + str(random_read_time) + "s", file=sys.stderr)
-    print("--- THROUGHPUT: " \
-          + str(humanize.naturalsize(random_read_bytes_size/random_read_time)) \
-          + "/s", file=sys.stderr)
-    print("", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("--- READ " + str(filecount) + " FILES WITH TOTAL SIZE " \
+              + str(humanize.naturalsize(random_read_bytes_size)) + " IN " \
+              + str(random_read_time) + "s", file=sys.stderr)
+        print("--- THROUGHPUT: " \
+              + str(humanize.naturalsize(random_read_bytes_size/random_read_time)) \
+              + "/s", file=sys.stderr)
+        print("", file=sys.stderr)
 
-    if dropcaches:
-        print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
-        drop_caches()
-        print(" DONE", file=sys.stderr)
+        if dropcaches:
+            print("\n--- DROPPING FILE CACHE...", end="", file=sys.stderr)
+            drop_caches()
+            print(" DONE", file=sys.stderr)
 
 
     #
