@@ -820,7 +820,7 @@ if __name__ == '__main__':
     # Start linear read benchmark
     #
     #
-    if options.writeonly:
+    if not options.writeonly:
         threads = []
         threads_results = process_manager.dict()
         threads_progress_messages = process_manager.dict()
@@ -856,7 +856,7 @@ if __name__ == '__main__':
     # Start random read benchmark
     #
     #
-    if options.writeonly:
+    if not options.writeonly:
         threads = []
         threads_results = process_manager.dict()
         threads_progress_messages = process_manager.dict()
