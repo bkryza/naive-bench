@@ -324,7 +324,7 @@ def file_write_benchmark(task_id, file_ids, filesize, deviation, \
 
     #
     # Generate random file sizes and calculate total size for this task
-    #
+    # \todo fix when files have random sizes
     random_file_sizes = \
                   [get_random_file_size(filesize, deviation) for i in file_ids]
     total_size_to_write = sum(random_file_sizes)
@@ -517,8 +517,14 @@ def file_random_read_benchmark(task_id, file_ids, filesize, deviation, \
         #
         file_read_bytes = 0
         
-        while(file_read_bytes + blocksize < infile_size):
-            infile.seek(int(random.random()*(int(infile_size/blocksize)-1)), 0)
+        #
+        # Prepare a shuffled list of block indexes to read in random order
+        #
+        random_block_indexes = [i for i in range(0,int(infile_size/blocksize))]
+        random.shuffle(random_block_indexes)
+        
+        for block_index in random_block_indexes:
+            infile.seek(block_index*blocksize, 0)
             block_read_bytes = outfile.write(infile.read(blocksize))
             file_read_bytes += block_read_bytes
             total_read_bytes += block_read_bytes
