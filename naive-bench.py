@@ -258,9 +258,8 @@ def file_create_benchmark(task_id, file_ids, filesize, deviation, \
 
     randdata = get_random_data(blocksize)
 
-
-    start_time = time.time()
     start_barrier.wait()
+    start_time = time.time()
     for i in range(len(file_ids)):
         #
         # Create random size file
@@ -340,8 +339,8 @@ def file_write_benchmark(task_id, file_ids, filesize, deviation, \
 
     randdata = get_random_data(blocksize)
 
-    start_time = time.time()
     start_barrier.wait()
+    start_time = time.time()
     for i in range(len(file_ids)):
         #
         # Create random size file
@@ -421,8 +420,9 @@ def file_linear_read_benchmark(task_id, file_ids, filesize, deviation, \
 
 
     outfile = open("/dev/null", "wb")
-    start_time = time.time()
     start_barrier.wait()
+    start_time = time.time()
+
     for i in range(len(file_ids)):
         #
         # Open file
@@ -502,8 +502,9 @@ def file_random_read_benchmark(task_id, file_ids, filesize, deviation, \
 
 
     outfile = open("/dev/null", "wb")
-    start_time = time.time()
     start_barrier.wait()
+    start_time = time.time()
+
     for i in range(len(file_ids)):
         #
         # Open file
