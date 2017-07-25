@@ -30,22 +30,27 @@ Options:
   -f FILECOUNT, --filecount=FILECOUNT
                         Number of files to create
   -s FILESIZE, --filesize=FILESIZE
-                        Average created file size. The file sizes will be random in the range (0.5*filesize, 1.5*filesize].
+                        Average created file size. The file sizes will be
+                        random in the range (0.5*filesize, 1.5*filesize].
   -b BLOCKSIZE, --blocksize=BLOCKSIZE
                         Size of data block for random read test.
   -n NAME, --name=NAME  Name of storage which identifies the performed test.
                         Defaults to hostname.
   -c, --csv             Generate CSV output.
   -H, --no-header       Skip CSV header.
-  -r, --read-only       This test will only perform read tests. It
-                        assumes that the current folder contains 'naive-bench-data' folder with test files uniformly numbered
-                        in the specified range.
-  -w, --write-only      This test will only perform write tests.     This
-                        option can be used to create data on storage for
-                        peforming remote read tests.
+  -r, --read-only       This test will only perform read tests. It assumes
+                        that the current folder contains 'naive-bench-data'
+                        folder with test files uniformly numbered in the
+                        specified range.
+  -w, --write-only      This test will only perform write tests. This option
+                        can be used to create data on storage for peforming
+                        remote read tests.
   -k, --keep            Keep the files after running the test.
-  -F, --force           Run the test even when the available storage size
-                        is too small.
+  -u, --truncate-after-create
+                        Truncates the created files to 0 size so that
+                        consecutive write benchmarks work with empty files.
+  -F, --force           Run the test even when the available storage size is
+                        too small.
   -d DEVIATION, --deviation=DEVIATION
                         Generate the files with random size in range
                         ((1.0-deviation)*filesize, (1.0+deviation)*filesize].

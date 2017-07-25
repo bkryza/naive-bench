@@ -19,18 +19,25 @@
   [[ $output == *"STORAGE NAME;FILE COUNT;AVERAGE FILE SIZE [b];CREATE TIME [s];CREATE SIZE [b];WRITE TIME [s];WRITE SIZE [b];LINEAR READ TIME [s];LINEAR READ SIZE [b];RANDOM READ TIME [s];RANDOM READ SIZE [b];DELETE"* ]]
 }
 
-@test "Data file should be kept with option k" {
+@test "Test with -H option should not contain CSV header" {
+  run ./naive-bench.py -P --filecount 10 --filesize 20MB --blocksize 100KB  -t 2 2>&1
+  [ $status -eq 0 ]
+  [[ $output != *"STORAGE NAME;FILE COUNT;AVERAGE FILE SIZE [b];"* ]]
+  [ ! -d "naive-bench-data" ]
+}
+
+@test "Data files should be kept with option k" {
   run ./naive-bench.py -P --filecount 10 --filesize 20MB --blocksize 100KB  -t 2 -k
   [ $status -eq 0 ]
   [ -d "naive-bench-data" ]
   [ "$(ls -1 naive-bench-data | wc -l)" -eq "10" ]
 }
 
-@test "Test with H options should not contain CSV header" {
-  run ./naive-bench.py -P --filecount 10 --filesize 20MB --blocksize 100KB  -t 2 2>&1
+@test "Created file sizes should be equal to specified size" {
+  run ./naive-bench.py -P --filecount 10 --filesize 20MB --blocksize 90KB  -t 2 -k
   [ $status -eq 0 ]
-  [[ $output != *"STORAGE NAME;FILE COUNT;AVERAGE FILE SIZE [b];"* ]]
-  [ ! -d "naive-bench-data" ]
+  [ -d "naive-bench-data" ]
+  [ "$(ls -la naive-bench-data | grep 20000000 | wc -l)" -eq "10" ]
 }
 
 
